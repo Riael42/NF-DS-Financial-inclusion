@@ -58,7 +58,7 @@ if __name__ == "__main__":
 ###########MAIN
 
 
-def project_model(data_path, random_seed):
+def project_model(training_data, random_seed):
 
     stratify = 0 #switch whether or not to stratify target_variable
     target_variable = "bank_account" #maybe we use this for the next project too
