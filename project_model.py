@@ -1,62 +1,3 @@
-def undersample_balance_dataset(df, minority_ratio=0.5, target_variable='bank_account'):
-    """
-    Undersamples the majority class in a DataFrame to balance the dataset.
-
-    Parameters:
-    - df: DataFrame containing the dataset.
-    - minority_ratio: Ratio of the minority class in the balanced dataset. Default is 0.5.
-    - target_variable: Name of the target variable. Default is 'bank_account'.
-
-    Returns:
-    - balanced_df: DataFrame containing the balanced dataset.
-    """
-    
-  # Count the number of samples in each class
-    class_counts = df[target_variable].value_counts(normalize = True)
-    print(class_counts)
-
-    # Determine the minority and majority classes
-    minority_class = class_counts.idxmin()
-    majority_class = class_counts.idxmax()
-
-    # Separate the dataframe into minority and majority classes
-    minority_df = df[df[target_variable] == minority_class]
-    majority_df = df[df[target_variable] == majority_class]
-
-    majority_size = int(minority_ratio*minority_df.shape[0]/(1-minority_ratio))
-    # Sample from majority class to match minority class ratio
-    majority_sampled = majority_df.sample(majority_size)
-    
-    # Concatenate minority and sampled majority class
-    balanced_df = pd.concat([minority_df, majority_sampled])
-    class_counts = balanced_df[target_variable].value_counts()
-    print(class_counts)
-    
-    # Shuffle the balanced dataframe
-    balanced_df = balanced_df.sample(frac=1).reset_index(drop=True)
-    return balanced_df
-
-###########MAIN
-
-
-
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Logistic Regression Tester")
-    parser.add_argument("--data_path", type=str, required=True,
-                        help="Give me data, or give me death! -some human")
-    parser.add_argument("--random_seed", type=int, required=True, help="Random seed for splitting the data")
-    args = parser.parse_args()
-    print("Arguments:", args)
-    project_model(data_path=args.data_path, random_seed=args.random_seed)
-
-
-
-
-
-###########MAIN
-
 #### IMPORTS
 
 # dataframe and plotting
@@ -64,8 +5,8 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-
-# machine learning
+import argparse
+import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
@@ -73,30 +14,43 @@ from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemple import VOtingClassifier
-from xboost import XGBClassifier
+from sklearn.ensemble import VotingClassifier
+import xgboost as xgb
 
 #### IMPORTS
+
+
+###########MODEL
+
 def project_model(training_data, random_seed):
+
+    ##FIX
+    training_data = pd.read_csv(training_data)
+    #training_data = pd.to_numeric(training_data, errors="coerce")
+    ##FIX
+
+    #print(training_data.info())
+    #print(training_data.shape)
+    #print(training_data.head())
 
     #todo: maybe split everything so we can do niter_forest = 3 num_cv_xgboost=21, somethin like that
     stratify = 0 #switch whether or not to stratify target_variable
     random_seed = 42 #random seed for everything random
     target_variable = "bank_account" #maybe we use this for the next project too
-    niter = 10 #number iterators
+    niter = 100 #number iterators
     num_cv = 5 #num cross validation folds
     verbose=0 #quiet 0 1 2 loud
     num_jobs = -1 #-1 all cpu cores, 1 disables parallelization, 2 uses specified number
     scoring = "f1" #if we want to change scoring for whatever reason
-    #todo: random_train_split make it so you randomize splits between models
 
+    #todo: random_train_split make it so you randomize splits between models
 
     #todo randomize the random parameters for the random models
     #not random parameters for logistic
-    penaltea = ['l1', 'l2', 'elasticnet'] #penalty for logistic regression
-    C_log = [0.001, 0.01, 0.1, 1, 10, 100, 1000] #C for logistic regression
-    slogver = ['saga', 'lbfgs', 'liblinear', 'newton-cg'] #solver for logistic regression
-    miter = [100, 1000, 10000] #max iterations for logistic regression
+    penaltea = ['l2'] #penalty for logistic regression
+    C_log = [0.001, 0.01, 0.1, 1, 10, 100] #C for logistic regression
+    slogver = [ 'lbfgs', 'liblinear'] #solver for logistic regression
+    miter = [100, 150, 200] #max iterations for logistic regression
 
     #not random parameters for random forest
     nestimators = [10, 100, 1000] # num estimators for random forest
@@ -113,16 +67,29 @@ def project_model(training_data, random_seed):
     min_boost_weight = [1, 3, 5, 7] #min_child_weight
     xgboosamplet = [0.6, 0.8, 1.0] #subsample
     xgbytree = [0.6, 0.8, 1.0] #colsample_bytree
-    xgboojective = "binary:logistic" #objective
-    xgauc = "auc" #eval_metric
+    xgboojective = ["binary:logistic"] #objective
+    xgauc = ["auc"] #eval_metric
     xgscale = [1, 1] #scale_pos_weight
+
+    #voting classifier
+    voting = "hard" #can be soft
 
 
     #data split
-    y = training_data[target_variable]
-    X = training_data.drop(target_variable, axis=1)
-    X, X_train, y, y_train = train_test_split(X, y, test_size=0.2, random_state=random_seed, stratify=stratify)
-
+    target = training_data[target_variable]
+    train = training_data.drop(target_variable, axis=1)
+    target.fillna(0, inplace=True)
+    train.fillna(0, inplace=True)
+    #print("shape: ", target.shape)
+    #print("unique values: ", target.unique())
+    #print(train.dtypes)
+    #print(target.dtypes)
+    #print(target)
+    if (stratify == 1):
+        X, X_train, y, y_train = train_test_split(train, target, test_size=0.2, random_state=random_seed, stratify=target_variable)
+    else:
+        X, X_train, y, y_train = train_test_split(train, target, test_size=0.2, random_state=random_seed)
+    #Darth Loger
     #train logistic
     tuned_logistic = LogisticRegression()
 
@@ -142,6 +109,7 @@ def project_model(training_data, random_seed):
     tuned_logistic.fit(X_train, y_train)
     tuned_logistic = tuned_logistic.best_estimator_
 
+    #Darth Lorax
     #train random forest
     tuned_forest = RandomForestClassifier()
 
@@ -163,8 +131,9 @@ def project_model(training_data, random_seed):
     tuned_forest.fit(X_train, y_train)
     tuned_forest = tuned_forest.best_estimator_
 
+    #Darth XGBious
     #train xgboost
-    tuned_xgboost = XGBClassifier()
+    tuned_xgboost = xgb.XGBClassifier()
 
     params = {
         "eta" : xbgeta,
@@ -173,7 +142,7 @@ def project_model(training_data, random_seed):
         "min_child_weight" : min_boost_weight,
         "subsample" : xgboosamplet,
         "colsample_bytree" : xgbytree,
-        "ojective" : xgboojective,
+        "objective" : xgboojective,
         "eval_metric" : xgauc,
         "scale_pos_weight" : xgscale
     }
@@ -186,3 +155,69 @@ def project_model(training_data, random_seed):
     tuned_xgboost.fit(X_train, y_train)
     tuned_xgboost = tuned_xgboost.best_estimator_
 
+    sith_council = VotingClassifier(estimators = [
+                                    ("logistic", tuned_logistic),
+                                    ("random_forest", tuned_forest),
+                                    ("xgboost", tuned_xgboost)], voting=voting
+    )
+    sith_council.fit(X_train, y_train)
+
+    #The great wall of prints
+
+    print("----------")
+    print("Logistic Regression")
+    print("----------")
+    print("Accuracy on train data:", accuracy_score(y_train, tuned_logistic.predict(X_train)))
+    print("Classification report on train data:")
+    print(classification_report(y_train, tuned_logistic.predict(X_train)))
+    print("----------")
+    print("Accuracy on test data:", accuracy_score(y, tuned_logistic.predict(X)))
+    print("Classification report on test data:")
+    print(classification_report(y, tuned_logistic.predict(X)))
+    print("----------")
+    print("Random Forest")
+    print("----------")
+    print("Accuracy on train data:", accuracy_score(y_train, tuned_forest.predict(X_train)))
+    print("Classification report on train data:")
+    print(classification_report(y_train, tuned_forest.predict(X_train)))
+    print("----------")
+    print("Accuracy on test data:", accuracy_score(y, tuned_forest.predict(X)))
+    print("Classification report on test data:")
+    print(classification_report(y, tuned_forest.predict(X)))
+    print("----------")
+    print("XGBoost")
+    print("----------")
+    print("Accuracy on train data:", accuracy_score(y_train, tuned_xgboost.predict(X_train)))
+    print("Classification report on train data:")
+    print(classification_report(y_train, tuned_xgboost.predict(X_train)))
+    print("----------")
+    print("Accuracy on test data:", accuracy_score(y, tuned_xgboost.predict(X)))
+    print("Classification report on test data:")
+    print(classification_report(y, tuned_xgboost.predict(X)))
+    print("----------")
+    print("Voting Classifier")
+    print("----------")
+    print("Accuracy on train data:", accuracy_score(y_train, sith_council.predict(X_train)))
+    print("Classification report on train data:")
+    print(classification_report(y_train, sith_council.predict(X_train)))
+    print("----------")
+    print("Accuracy on test data:", accuracy_score(y, sith_council.predict(X)))
+    print("Classification report on test data:")
+    print(classification_report(y, sith_council.predict(X)))
+    print("----------")
+
+
+###########MAIN
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Logistic Regression Tester")
+    parser.add_argument("--training_data", type=str, required=True,
+                        help="Give me data, or give me death! -some human")
+    parser.add_argument("--random_seed", type=int, required=True, help="Random seed for splitting the data")
+    args = parser.parse_args()
+    print("Arguments:", args)
+    project_model(training_data=args.training_data, random_seed=args.random_seed)
+
+
+
+###########MAIN
