@@ -35,14 +35,16 @@ def project_model(training_data, random_seed):
 
     #todo: maybe split everything so we can do niter_forest = 3 num_cv_xgboost=21, somethin like that
     stratify = 0 #switch whether or not to stratify target_variable
-    random_seed = 42 #random seed for everything random
     target_variable = "bank_account" #maybe we use this for the next project too
     niter = 100 #number iterators
     num_cv = 5 #num cross validation folds
     verbose=0 #quiet 0 1 2 loud
     num_jobs = -1 #-1 all cpu cores, 1 disables parallelization, 2 uses specified number
     scoring = "f1" #if we want to change scoring for whatever reason
-
+    random_train_split = 1
+    rs_one = random_seed
+    rs_two = 77
+    rs_three = 33
     #todo: random_train_split make it so you randomize splits between models
 
     #todo randomize the random parameters for the random models
@@ -86,9 +88,9 @@ def project_model(training_data, random_seed):
     #print(target.dtypes)
     #print(target)
     if (stratify == 1):
-        X, X_train, y, y_train = train_test_split(train, target, test_size=0.2, random_state=random_seed, stratify=target_variable)
+        X, X_train, y, y_train = train_test_split(train, target, test_size=0.2, random_state=rs_one, stratify=target_variable)
     else:
-        X, X_train, y, y_train = train_test_split(train, target, test_size=0.2, random_state=random_seed)
+        X, X_train, y, y_train = train_test_split(train, target, test_size=0.2, random_state=rs_one)
     #Darth Loger
     #train logistic
     tuned_logistic = LogisticRegression()
@@ -108,6 +110,13 @@ def project_model(training_data, random_seed):
                                         scoring=scoring)
     tuned_logistic.fit(X_train, y_train)
     tuned_logistic = tuned_logistic.best_estimator_
+
+    if (random_train_split == 1):
+        if (stratify == 1):
+            X, X_train, y, y_train = train_test_split(train, target, test_size=0.2, random_state=rs_two, stratify=target_variable)
+        else:
+            X, X_train, y, y_train = train_test_split(train, target, test_size=0.2, random_state=rs_two)
+
 
     #Darth Lorax
     #train random forest
@@ -130,6 +139,12 @@ def project_model(training_data, random_seed):
                                       scoring=scoring)
     tuned_forest.fit(X_train, y_train)
     tuned_forest = tuned_forest.best_estimator_
+
+    if (random_train_split == 1):
+        if (stratify == 1):
+            X, X_train, y, y_train = train_test_split(train, target, test_size=0.2, random_state=rs_three, stratify=target_variable)
+        else:
+            X, X_train, y, y_train = train_test_split(train, target, test_size=0.2, random_state=rs_three)
 
     #Darth XGBious
     #train xgboost
